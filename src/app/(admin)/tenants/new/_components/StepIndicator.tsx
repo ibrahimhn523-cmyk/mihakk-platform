@@ -33,8 +33,7 @@ export default function StepIndicator({ currentStep, steps }: StepIndicatorProps
                 ${active  ? 'text-white ring-4 ring-offset-1'                        : ''}
                 ${pending ? 'border-2 border-gray-200 bg-white text-gray-400'        : ''}
               `}
-              style={active ? { backgroundColor: 'var(--color-primary)',
-                               ringColor: 'var(--color-primary)' } : {}}
+              style={active ? { backgroundColor: 'var(--color-primary)' } : {}}
               >
                 {done ? '✓' : step.number}
               </div>
