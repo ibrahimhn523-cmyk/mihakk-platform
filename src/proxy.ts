@@ -79,7 +79,7 @@ async function isSuperAdmin(request: NextRequest): Promise<boolean> {
 // SECTION: middleware الرئيسي — الاسم يبقى middleware حسب Next.js API
 // ============================================================
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const hostname = request.headers.get('host') ?? 'localhost:3000'
 
