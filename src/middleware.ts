@@ -1,7 +1,6 @@
 // ============================================================
-// SECTION: Proxy الرئيسي — منصة محك
+// SECTION: Middleware الرئيسي — منصة محك
 // الوصف: يعالج كل طلب — يستخرج الـ tenant، يحدّث الجلسة، يحمي المسارات
-// ملاحظة: تم الانتقال من middleware.ts إلى proxy.ts (Next.js 16+)
 // ============================================================
 
 import { type NextRequest, NextResponse } from 'next/server'
@@ -76,7 +75,7 @@ async function isSuperAdmin(request: NextRequest): Promise<boolean> {
 }
 
 // ============================================================
-// SECTION: proxy الرئيسي — الاسم middleware مطلوب من Next.js حتى في proxy.ts
+// SECTION: middleware الرئيسي
 // ============================================================
 
 export async function middleware(request: NextRequest) {
@@ -150,7 +149,7 @@ export async function middleware(request: NextRequest) {
 }
 
 // ============================================================
-// SECTION: Matcher — المسارات التي يعالجها الـ proxy
+// SECTION: Matcher — المسارات التي يعالجها الـ middleware
 // الوصف: يشمل كل المسارات ما عدا الملفات الثابتة
 // ============================================================
 
