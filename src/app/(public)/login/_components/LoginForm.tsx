@@ -21,7 +21,7 @@ interface LoginFormProps {
 
 export default function LoginForm({ tenantName }: LoginFormProps) {
   const router = useRouter()
-  const [phone, setPhone]       = useState('')
+  const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [error, setError]       = useState<string | null>(null)
   const [loading, setLoading]   = useState(false)
@@ -36,9 +36,9 @@ export default function LoginForm({ tenantName }: LoginFormProps) {
     try {
       const supabase = createClient()
 
-      // تسجيل الدخول عبر رقم الجوال وكلمة المرور
+      // تسجيل الدخول عبر البريد الإلكتروني وكلمة المرور
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        phone: phone.trim(),
+        email: email.trim(),
         password,
       })
 
@@ -77,13 +77,13 @@ export default function LoginForm({ tenantName }: LoginFormProps) {
 
   function getArabicError(msg: string): string {
     if (msg.includes('Invalid login credentials'))
-      return 'رقم الجوال أو كلمة المرور غير صحيحة'
+      return 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
     if (msg.includes('Email not confirmed'))
-      return 'الحساب لم يتم تفعيله بعد'
+      return 'الحساب لم يتم تفعيله بعد، تحقق من بريدك الإلكتروني'
     if (msg.includes('Too many requests'))
       return 'محاولات كثيرة، يرجى الانتظار قليلاً'
     if (msg.includes('User not found'))
-      return 'لا يوجد حساب بهذا الرقم'
+      return 'لا يوجد حساب بهذا البريد الإلكتروني'
     return 'حدث خطأ، يرجى المحاولة مجدداً'
   }
 
@@ -121,24 +121,24 @@ export default function LoginForm({ tenantName }: LoginFormProps) {
           {/* ── النموذج ──────────────────────────────────────── */}
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
 
-            {/* حقل رقم الجوال */}
+            {/* حقل البريد الإلكتروني */}
             <div>
               <label
-                htmlFor="phone"
+                htmlFor="email"
                 className="block text-sm font-medium text-gray-700 mb-1.5"
               >
-                رقم الجوال
+                البريد الإلكتروني
               </label>
               <input
-                id="phone"
-                type="tel"
-                inputMode="numeric"
-                autoComplete="tel"
+                id="email"
+                type="email"
+                autoComplete="email"
                 required
-                placeholder="05XXXXXXXX"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                placeholder="user@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-[var(--color-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary)]/10"
+                dir="ltr"
               />
             </div>
 
@@ -165,7 +165,7 @@ export default function LoginForm({ tenantName }: LoginFormProps) {
             {/* زر تسجيل الدخول */}
             <button
               type="submit"
-              disabled={loading || !phone || !password}
+              disabled={loading || !email || !password}
               className="w-full rounded-xl py-3 text-sm font-semibold text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: 'var(--color-primary)' }}
             >
