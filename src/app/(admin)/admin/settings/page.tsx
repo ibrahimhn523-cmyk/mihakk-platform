@@ -1,23 +1,35 @@
 // ============================================================
 // SECTION: Settings Page — إعدادات المنصة
-// الوصف: صفحة مؤقتة — قيد التطوير
+// الوصف: Server Component — يجلب الإعدادات ويمرّرها للنموذج
 // ============================================================
 
 import type { Metadata } from 'next'
+import { getSettings }   from './actions'
+import SettingsForm      from './_components/SettingsForm'
 
 export const metadata: Metadata = { title: 'إعدادات المنصة' }
 
-export default function SettingsPage() {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 text-3xl">
-        ⚙️
+export default async function SettingsPage() {
+  const settings = await getSettings()
+
+  if (!settings) {
+    return (
+      <div className="rounded-2xl border border-red-100 bg-red-50 p-8 text-center">
+        <p className="text-sm text-red-600 mb-2">⚠️ لم يتم العثور على إعدادات المنصة</p>
+        <p className="text-xs text-red-400">
+          تأكد من تنفيذ migration 003_platform_settings.sql في Supabase
+        </p>
       </div>
-      <h1 className="text-xl font-semibold text-gray-800">إعدادات المنصة</h1>
-      <p className="text-sm text-gray-400">هذه الصفحة قيد التطوير — ستتوفر قريباً</p>
-      <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-600 ring-1 ring-amber-200">
-        قيد التطوير
-      </span>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">إعدادات المنصة</h1>
+        <p className="text-sm text-gray-400 mt-0.5">تخصيص هوية محك البصرية والإعدادات العامة</p>
+      </div>
+      <SettingsForm settings={settings} />
     </div>
   )
 }
