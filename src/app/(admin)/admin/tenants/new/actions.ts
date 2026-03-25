@@ -4,36 +4,32 @@
 // SECTION: Server Actions — إنشاء منشأة جديدة
 // الوصف: يُدخل البيانات في tenants, tenant_owners,
 //        subscriptions, tenant_limits, tenant_services
-//        ثم يُرسل رسالة ترحيب عبر WhatsApp
+//        ثم يُرسل رسالة ترحيب عبر WhatsApp ويُسجّل العملية
 // ============================================================
 
-import { createClient }        from '@/lib/supabase/server'
-import { redirect }            from 'next/navigation'
-import { sendWelcomeMessage }  from '@/lib/integrations/whatsapp'
+import { createClient }       from '@/lib/supabase/server'
+import { redirect }           from 'next/navigation'
+import { sendWelcomeMessage } from '@/lib/integrations/whatsapp'
+import { logAction }          from '@/lib/utils/audit'
 
 // ── Sub-section: Type ─────────────────────────────────────────
 
 export interface NewTenantPayload {
-  // الخطوة ١
   name:        string
   subdomain:   string
   ownerName:   string
   ownerPhone:  string
   ownerEmail:  string
-  // الخطوة ٢
   plan:        'trial' | 'basic' | 'advanced'
   startsAt:    string
   endsAt:      string
   maxStudents: number
   maxPrograms: number
   maxUsers:    number
-  // الخطوة ٣
   services:    Record<string, boolean>
 }
 
-export interface ActionResult {
-  error?: string
-}
+export interface ActionResult { error?: string }
 
 // ============================================================
 // SECTION: createTenant — Action رئيسي
@@ -69,9 +65,7 @@ export async function createTenant(
       email:     payload.ownerEmail || null,
     })
 
-  if (ownerError) {
-    return { error: 'فشل حفظ بيانات المالك' }
-  }
+  if (ownerError) return { error: 'فشل حفظ بيانات المالك' }
 
   // ── [3] إدراج الاشتراك ───────────────────────────────────
   const { error: subError } = await supabase
@@ -84,9 +78,7 @@ export async function createTenant(
       is_active: true,
     })
 
-  if (subError) {
-    return { error: 'فشل حفظ الاشتراك' }
-  }
+  if (subError) return { error: 'فشل حفظ الاشتراك' }
 
   // ── [4] إدراج الحدود ────────────────────────────────────
   const { error: limitsError } = await supabase
@@ -98,9 +90,7 @@ export async function createTenant(
       max_users:    payload.maxUsers,
     })
 
-  if (limitsError) {
-    return { error: 'فشل حفظ حدود الاستخدام' }
-  }
+  if (limitsError) return { error: 'فشل حفظ حدود الاستخدام' }
 
   // ── [5] إدراج الخدمات ───────────────────────────────────
   const CORE_KEYS = ['db','subscriptions','programs','accounting',
@@ -118,20 +108,26 @@ export async function createTenant(
     .from('tenant_services')
     .insert(servicesRows)
 
-  if (servicesError) {
-    return { error: 'فشل حفظ الخدمات' }
-  }
+  if (servicesError) return { error: 'فشل حفظ الخدمات' }
 
-  // ── [6] إرسال رسالة الترحيب عبر WhatsApp ───────────────
-  // لا تُوقف العملية إذا فشل الإرسال — فقط تسجيل
+  // ── [6] تسجيل العملية ───────────────────────────────────
+  await logAction({
+    action:     'CREATE_TENANT',
+    entityType: 'tenant',
+    entityId:   tenantId,
+    entityName: payload.name,
+    newValue: {
+      name:      payload.name,
+      subdomain: payload.subdomain,
+      plan:      payload.plan,
+      owner:     payload.ownerName,
+    },
+  })
+
+  // ── [7] إرسال رسالة الترحيب عبر WhatsApp ────────────────
   if (payload.ownerPhone) {
     const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://mihakk.com'}/login`
-    await sendWelcomeMessage(
-      payload.ownerPhone,
-      payload.name,
-      loginUrl,
-      '••••••••'   // كلمة المرور المؤقتة تُحدَّد لاحقاً عند إنشاء حساب المالك
-    )
+    await sendWelcomeMessage(payload.ownerPhone, payload.name, loginUrl, '••••••••')
   }
 
   redirect(`/admin/tenants/${tenantId}`)

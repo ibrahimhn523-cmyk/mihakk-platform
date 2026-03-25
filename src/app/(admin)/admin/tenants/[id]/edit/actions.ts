@@ -2,14 +2,13 @@
 
 // ============================================================
 // SECTION: Edit Tenant Actions — تعديل بيانات المنشأة
-// الوصف: يحدّث tenants + tenant_owners + tenant_limits دفعة واحدة
+// الوصف: يحدّث tenants + tenant_owners + tenant_limits + يسجّل العملية
 // ============================================================
 
 import { createClient }   from '@/lib/supabase/server'
 import { redirect }       from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-
-// ── Sub-section: Types ─────────────────────────────────────────
+import { logAction }      from '@/lib/utils/audit'
 
 export interface EditTenantPayload {
   tenantId:    string
@@ -22,31 +21,21 @@ export interface EditTenantPayload {
   maxUsers:    number
 }
 
-export interface EditActionResult {
-  error?: string
-}
+export interface EditActionResult { error?: string }
 
-// ============================================================
-// SECTION: updateTenant — Action رئيسي للتعديل
-// ============================================================
-
-/**
- * يحدّث بيانات المنشأة والمالك والحدود
- * @param payload - البيانات المعدّلة
- * @returns error string أو يُعيد redirect عند النجاح
- */
 export async function updateTenant(
   payload: EditTenantPayload
 ): Promise<EditActionResult> {
   const supabase = await createClient()
   const { tenantId } = payload
 
+  // جلب البيانات القديمة للتسجيل
+  const { data: oldData } = await supabase
+    .from('tenants').select('name').eq('id', tenantId).single()
+
   // ── [1] تحديث اسم المنشأة ───────────────────────────────
   const { error: tenantError } = await supabase
-    .from('tenants')
-    .update({ name: payload.name.trim() })
-    .eq('id', tenantId)
-
+    .from('tenants').update({ name: payload.name.trim() }).eq('id', tenantId)
   if (tenantError) return { error: 'فشل تحديث بيانات المنشأة' }
 
   // ── [2] تحديث بيانات المالك ─────────────────────────────
@@ -58,7 +47,6 @@ export async function updateTenant(
       email:     payload.ownerEmail.trim() || null,
     })
     .eq('tenant_id', tenantId)
-
   if (ownerError) return { error: 'فشل تحديث بيانات المالك' }
 
   // ── [3] تحديث الحدود ────────────────────────────────────
@@ -70,10 +58,26 @@ export async function updateTenant(
       max_users:    payload.maxUsers,
     })
     .eq('tenant_id', tenantId)
-
   if (limitsError) return { error: 'فشل تحديث حدود الاستخدام' }
 
-  // ── إعادة التحقق من الكاش والتوجيه ─────────────────────
+  // ── [4] تسجيل العملية ───────────────────────────────────
+  await logAction({
+    action:     'UPDATE_TENANT',
+    entityType: 'tenant',
+    entityId:   tenantId,
+    entityName: payload.name,
+    oldValue:   { name: oldData?.name },
+    newValue: {
+      name:      payload.name,
+      ownerName: payload.ownerName,
+      limits: {
+        max_students: payload.maxStudents,
+        max_programs: payload.maxPrograms,
+        max_users:    payload.maxUsers,
+      },
+    },
+  })
+
   revalidatePath(`/admin/tenants/${tenantId}`)
   revalidatePath('/admin/tenants')
   redirect(`/admin/tenants/${tenantId}`)
