@@ -4,10 +4,12 @@
 // SECTION: Server Actions — إنشاء منشأة جديدة
 // الوصف: يُدخل البيانات في tenants, tenant_owners,
 //        subscriptions, tenant_limits, tenant_services
+//        ثم يُرسل رسالة ترحيب عبر WhatsApp
 // ============================================================
 
-import { createClient } from '@/lib/supabase/server'
-import { redirect }     from 'next/navigation'
+import { createClient }        from '@/lib/supabase/server'
+import { redirect }            from 'next/navigation'
+import { sendWelcomeMessage }  from '@/lib/integrations/whatsapp'
 
 // ── Sub-section: Type ─────────────────────────────────────────
 
@@ -118,6 +120,18 @@ export async function createTenant(
 
   if (servicesError) {
     return { error: 'فشل حفظ الخدمات' }
+  }
+
+  // ── [6] إرسال رسالة الترحيب عبر WhatsApp ───────────────
+  // لا تُوقف العملية إذا فشل الإرسال — فقط تسجيل
+  if (payload.ownerPhone) {
+    const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://mihakk.com'}/login`
+    await sendWelcomeMessage(
+      payload.ownerPhone,
+      payload.name,
+      loginUrl,
+      '••••••••'   // كلمة المرور المؤقتة تُحدَّد لاحقاً عند إنشاء حساب المالك
+    )
   }
 
   redirect(`/admin/tenants/${tenantId}`)
