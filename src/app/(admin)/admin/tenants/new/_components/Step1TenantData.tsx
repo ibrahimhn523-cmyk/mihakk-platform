@@ -74,10 +74,10 @@ export default function Step1TenantData({ data, onChange, errors }: Props) {
                 placeholder="stars"
                 value={data.subdomain}
                 onChange={(e) => handleSubdomain(e.target.value)}
-                className={`${inputCls} pe-32`}
+                className={`${inputCls} pr-28`}
                 dir="ltr"
               />
-              <span className="pointer-events-none absolute top-1/2 end-3 -translate-y-1/2 text-xs text-gray-400">
+              <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-gray-400 select-none">
                 .mihakk.com
               </span>
             </div>
