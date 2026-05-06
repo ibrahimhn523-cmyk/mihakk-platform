@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { updateSession } from "@/lib/supabase/middleware";
 import { createServerClient } from "@supabase/ssr";
 
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password"];
@@ -11,78 +10,75 @@ function extractTenantSlug(hostname: string): string {
   return host.replace(/\.mihakk\.com$/, "");
 }
 
-async function getUserRole(request: NextRequest): Promise<string | null> {
+export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const hostname = request.headers.get("host") ?? "localhost:3000";
+  const tenantSlug = extractTenantSlug(hostname);
+
+  // Single client for the entire middleware run.
+  // setAll keeps request.cookies and supabaseResponse.cookies in sync so any
+  // token refresh is immediately visible to subsequent reads within this run.
+  let supabaseResponse = NextResponse.next({ request });
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll: () => request.cookies.getAll(),
-        setAll: () => {},
+        setAll: (cookiesToSet) => {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
+        },
       },
     }
   );
 
+  // One getUser() call — validates the session and triggers a token refresh
+  // if the access token is expired. Must not be moved after early returns.
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return null;
 
-  const { data } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  return data?.role ?? null;
-}
-
-export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const hostname = request.headers.get("host") ?? "localhost:3000";
-
-  const tenantSlug = extractTenantSlug(hostname);
-  const response = await updateSession(request);
-  response.headers.set("x-tenant-slug", tenantSlug);
-  response.headers.set("x-pathname", pathname);
+  supabaseResponse.headers.set("x-tenant-slug", tenantSlug);
+  supabaseResponse.headers.set("x-pathname", pathname);
 
   const isPublic = PUBLIC_PATHS.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
-  if (isPublic) return response;
+  if (isPublic) return supabaseResponse;
 
   if (pathname.startsWith("/admin")) {
-    const role = await getUserRole(request);
-    if (!role || role !== "super_admin") {
-      const url = new URL("/login", request.url);
-      url.searchParams.set("next", pathname);
-      return NextResponse.redirect(url);
+    if (!user) {
+      return redirectToLogin(request, pathname);
     }
-    return response;
+    const { data } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    if (data?.role !== "super_admin") {
+      return redirectToLogin(request, pathname);
+    }
+    return supabaseResponse;
   }
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: () => {},
-      },
-    }
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   if (!user) {
-    const url = new URL("/login", request.url);
-    url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
+    return redirectToLogin(request, pathname);
   }
 
-  return response;
+  return supabaseResponse;
+}
+
+function redirectToLogin(request: NextRequest, next: string): NextResponse {
+  const url = new URL("/login", request.url);
+  url.searchParams.set("next", next);
+  return NextResponse.redirect(url);
 }
 
 export const config = {

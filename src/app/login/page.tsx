@@ -1,14 +1,13 @@
 "use client";
 
-import { Suspense, useState, FormEvent } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Card from "@/components/ui/Card";
 
 function LoginForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") || "/dashboard";
 
@@ -33,8 +32,10 @@ function LoginForm() {
       setError("البريد الإلكتروني أو كلمة المرور غير صحيحة");
       return;
     }
-    router.push(next);
-    router.refresh();
+    // Full page navigation so the auth cookies reach the middleware cleanly.
+    // router.push + router.refresh races against each other and can abort the
+    // navigation, leaving the user stuck on /login.
+    window.location.href = next;
   }
 
   return (
